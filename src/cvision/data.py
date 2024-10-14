@@ -63,6 +63,8 @@ class VisionDataset(Dataset):
         """
         classes = set()
         for dirname, _, _ in os.walk(path):
+            if Path(dirname).name in ["train", "test", "validation"]:
+                continue
             cls = Path(dirname).name
             classes.add(cls)
         return list(sorted(classes))
