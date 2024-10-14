@@ -1,0 +1,45 @@
+[project]
+name = "cvtools"
+version = "0.0.1"
+authors = [
+  { name="Piotr Święcik", email="piotr.swiecik@gmail.com" },
+]
+description = "Various tools for image recognition transfer learning."
+readme = "README.md"
+requires-python = ">=3.12"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/piotrswiecik/cvision"
+Issues = "https://github.com/piotrswiecik/cvision/issues"
+
+[tool.poetry]
+name = "cvision"
+version = "0.1.0"
+description = "Utility packages for computer vision transfer learning"
+authors = ["Piotr Swiecik <piotr.swiecik@gmail.com>"]
+readme = "README.md"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+torch = "^2.4.1"
+torchvision = "^0.19.1"
+torchaudio = "^2.4.1"
+matplotlib = "^3.9.2"
+pandas = "^2.2.3"
+numpy = "^2.1.2"
+ipykernel = "^6.29.5"
+jupyterlab = "^4.2.5"
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.10.0"
+isort = "^5.13.2"
+pytest = "^8.3.3"
