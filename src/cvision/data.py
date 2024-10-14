@@ -3,9 +3,10 @@
 import os
 from pathlib import Path
 from typing import Any
+import zipfile
 
 from PIL import Image
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 
 
 class VisionDataset(Dataset):
@@ -81,3 +82,55 @@ class VisionDataset(Dataset):
         if self.transform is not None:
             image = self.transform(image)
         return image, label  # (X, y)
+    
+
+# TODO: test
+def get_fruits(
+        remote: str, localdir: str, fname: str = "archive.zip"
+        ) -> dict[str, VisionDataset | None]:
+    """Download fruits & vegetables image set and wrap it into custom train, eval and test
+    datasets.
+    
+    Args:
+        remote (str):
+            URL to remote zip file containing image dataset.
+        localdir (str):
+            Local directory path used to store all data. Must be a valid path.
+        fname (str):
+            Filename convention for downloaded archive. Default is archive.zip.
+
+    Returns:
+    ```
+        {
+            "train_dataset" : VisionDataset,
+            "val_dataset": VisionDataset,
+            "test_dataset": VisionDataset
+        }
+    
+    ```
+    Note that return values for validation and test datasets can be None if they are not provided
+    by data download.
+    """
+    try:
+        localdir = Path(localdir)
+    except:
+        raise Exception(f"Local path {localdir} is invalid.")
+    # TODO: verify remote
+    # TODO: download from remote
+
+    # for now assume that zip was pulled to localdir successfully
+    f = localdir / fname
+    if not f.exists(): 
+        raise Exception(f"File {f} does not exist.")
+    with zipfile.ZipFile(f, "r") as arch:
+        arch.extractall(localdir)
+
+    ds_train = VisionDataset(path=(localdir / "train"))
+    ds_val = VisionDataset(path=(localdir / "validation"))
+    ds_test = VisionDataset(path=(localdir / "test"))
+
+    return {
+        "train_dataset": ds_train,
+        "val_dataset": ds_val,
+        "test_dataset": ds_test
+    }
