@@ -3035,6 +3035,17 @@ files = [
 torch = "2.4.1"
 
 [[package]]
+name = "torchinfo"
+version = "1.8.0"
+description = "Model summary in PyTorch, based off of the original torchsummary."
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "torchinfo-1.8.0-py3-none-any.whl", hash = "sha256:2e911c2918603f945c26ff21a3a838d12709223dc4ccf243407bce8b6e897b46"},
+    {file = "torchinfo-1.8.0.tar.gz", hash = "sha256:72e94b0e9a3e64dc583a8e5b7940b8938a1ac0f033f795457f27e6f4e7afa2e9"},
+]
+
+[[package]]
 name = "torchvision"
 version = "0.19.1"
 description = "image and video datasets and models for torch deep learning"
@@ -3269,4 +3280,4 @@ test = ["websockets"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "244437001268c59073c0e7b9a6404dbe7b3fbd568fb77c9d7c642707803b6761"
+content-hash = "19ce507dca52ac3a408e3e43e4d711e87eae098aee6776b5522454a34cf4ade1"
