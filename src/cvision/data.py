@@ -87,12 +87,16 @@ class VisionDataset(Dataset):
             image = self.transform(image)
         return image, label  # (X, y)
     
+    def set_transform(self, transform: Any):
+        self.transform = transform
+    
 
 # TODO: test
 def get_fruits(
         localdir: str,
         remote: str = "https://www.kaggle.com/api/v1/datasets/download/kritikseth/fruit-and-vegetable-image-recognition",
-        fname: str = "archive.zip"
+        fname: str = "archive.zip",
+        force: bool = True
         ) -> dict[str, VisionDataset | None]:
     """Download fruits & vegetables image set and wrap it into custom train, eval and test
     datasets.
@@ -104,7 +108,8 @@ def get_fruits(
             Local directory path used to store all data. Must be a valid path.
         fname (str):
             Filename convention for downloaded archive. Default is archive.zip.
-
+        force (bool):
+            Redownload data even if it already exists.
     Returns:
     ```
         {
@@ -117,11 +122,29 @@ def get_fruits(
     Note that return values for validation and test datasets can be None if they are not provided
     by data download.
     """
+    def _wrap_data():
+        ds_train = VisionDataset(path=(localdir / "train"))
+        ds_val = VisionDataset(path=(localdir / "validation"))
+        ds_test = VisionDataset(path=(localdir / "test"))
+
+        return {
+            "train_dataset": ds_train,
+            "val_dataset": ds_val,
+            "test_dataset": ds_test
+        }
+
     # TODO: verify remote
     try:
         localdir = Path(localdir)
     except:
         raise Exception(f"Local path {localdir} is invalid.")
+    
+    # check if data already exists
+    if not force:
+        # TODO: more detailed verification logic
+        if all((Path.exists(localdir / "train"), Path.exists(localdir / "validation"), Path.exists(localdir / "test"))):
+            print("Data already exists.")
+            return _wrap_data()
 
     # download in multithreaded mode
     threaded_download(remote, localdir, fname, threads=os.cpu_count())
@@ -135,15 +158,7 @@ def get_fruits(
         print(f"Extracting dataset...")
         arch.extractall(localdir)
 
-    ds_train = VisionDataset(path=(localdir / "train"))
-    ds_val = VisionDataset(path=(localdir / "validation"))
-    ds_test = VisionDataset(path=(localdir / "test"))
-
-    return {
-        "train_dataset": ds_train,
-        "val_dataset": ds_val,
-        "test_dataset": ds_test
-    }
+    return _wrap_data()
 
 
 # TODO: test
