@@ -107,9 +107,32 @@ class ModelTrainer:
         return {"loss": epoch_loss, "accuracy": epoch_acc}
 
 
-    def _test_step():
-        """Performs a single validation step across all batches in dataloader."""
-        pass
+    def _test_step(self) -> dict[str, float]:
+        """Performs a single validation step across all batches in dataloader.
+
+        Returns:
+            Dictionary containing average loss and accuracy for all batches in validation set.
+        """
+        # TODO: verbose mode
+        self._model.eval()
+        self._model.to(self._device)
+        total_loss, total_acc = 0.0, 0.0
+
+        with torch.inference_mode():
+            for batch, (X, y) in enumerate(self._eval_loader):
+                X, y = X.to(self._device), y.to(self._device)
+                forward_pass = self._model(X)
+                batch_loss = self._loss_fn(forward_pass, y)
+                total_loss += batch_loss.item()
+                probs = torch.softmax(forward_pass, dim=1)
+                y_hat = torch.argmax(probs, dim=1)
+                batch_acc = self._accuracy_fn(y, y_hat)
+                total_acc += batch_acc
+
+            total_loss /= len(self._eval_loader)
+            total_acc /= len(self._eval_loader)
+
+        return {"loss": total_loss, "accuracy": total_acc}
 
 
     def train(self, n_epochs: int):
@@ -129,6 +152,7 @@ class ModelTrainer:
 
         for epoch in range(n_epochs):
             epoch_res = self._train_step()
+            epoch_eval = self._test_step()
             # TODO: additional logs
             if log:
                 self._client.log_metric(
@@ -137,4 +161,12 @@ class ModelTrainer:
                 self._client.log_metric(
                     run_id=run.info.run_id, key="train_acc", value=epoch_res["accuracy"], step=epoch
                 )
-            print(f"Epoch #{epoch+1} | Loss {epoch_res['loss']:.4f} | Acc {epoch_res['accuracy']:.4f}")
+                self._client.log_metric(
+                    run_id=run.info.run_id, key="val_loss", value=epoch_eval["loss"], step=epoch
+                )
+                self._client.log_metric(
+                    run_id=run.info.run_id, key="val_acc", value=epoch_eval["accuracy"], step=epoch
+                )
+                
+            print(f"Epoch #{epoch+1} | Train loss {epoch_res['loss']:.4f} | Train acc {epoch_res['accuracy']:.4f}")
+            print(f"Epoch #{epoch+1} | Val loss {epoch_eval['loss']:.4f} | Val acc {epoch_eval['accuracy']:.4f}")
