@@ -38,6 +38,7 @@ pandas = "^2.2.3"
 numpy = "^2.1.2"
 ipykernel = "^6.29.5"
 jupyterlab = "^4.2.5"
+tqdm = "^4.66.5"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.10.0"
