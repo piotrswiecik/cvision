@@ -90,7 +90,9 @@ class VisionDataset(Dataset):
 
 # TODO: test
 def get_fruits(
-        remote: str, localdir: str, fname: str = "archive.zip"
+        localdir: str,
+        remote: str = "https://www.kaggle.com/api/v1/datasets/download/kritikseth/fruit-and-vegetable-image-recognition",
+        fname: str = "archive.zip"
         ) -> dict[str, VisionDataset | None]:
     """Download fruits & vegetables image set and wrap it into custom train, eval and test
     datasets.
@@ -115,18 +117,22 @@ def get_fruits(
     Note that return values for validation and test datasets can be None if they are not provided
     by data download.
     """
+    # TODO: verify remote
     try:
         localdir = Path(localdir)
     except:
         raise Exception(f"Local path {localdir} is invalid.")
-    # TODO: verify remote
-    # TODO: download from remote
 
-    # for now assume that zip was pulled to localdir successfully
+    # download in multithreaded mode
+    threaded_download(remote, localdir, fname, threads=os.cpu_count())
+
+    # unzip
+    # other compression formats not supported yet
     f = localdir / fname
     if not f.exists(): 
         raise Exception(f"File {f} does not exist.")
     with zipfile.ZipFile(f, "r") as arch:
+        print(f"Extracting dataset...")
         arch.extractall(localdir)
 
     ds_train = VisionDataset(path=(localdir / "train"))
@@ -141,8 +147,8 @@ def get_fruits(
 
 
 # TODO: test
-def threaded_download(remote: str, localdir: str, threads: int = 1):
-    """x"""
+def threaded_download(remote: str, localdir: str, fname: str = "archive.zip", threads: int = 1):
+    """Helper method. Download remote file using n threads as workers."""
     lpath: Path | None = None
     try:
         lpath = Path(localdir)
@@ -214,7 +220,7 @@ def threaded_download(remote: str, localdir: str, threads: int = 1):
         thread.join()
 
     # recombine file parts
-    out_file = lpath / "archive.zip" # only zip supported for now
+    out_file = lpath / fname
     try:
         with open(out_file, "wb") as f, tqdm(total=length, unit="B", unit_scale=True, desc="Merging...") as pb:
             for idx in range(threads):
