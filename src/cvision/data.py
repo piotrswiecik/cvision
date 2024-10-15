@@ -81,8 +81,11 @@ class VisionDataset(Dataset):
         image = Image.open(self.paths[idx])
         label = self.class_idx[self.paths[idx].parent.name]
         # if image is non-RGB, convert it
-        if image.mode != "RGB" and self.rgb_only:
+        if self.rgb_only and image.mode != "RGB":
             image = image.convert("RGB")
+        # an addtional protection if number of channels is not 3
+        if self.rgb_only and len(image.getbands()) != 3:
+            raise Exception("Non RGB") # TODO: handle this case - return none possibly
         if self.transform is not None:
             image = self.transform(image)
         return image, label  # (X, y)
@@ -123,9 +126,9 @@ def get_fruits(
     by data download.
     """
     def _wrap_data():
-        ds_train = VisionDataset(path=(localdir / "train"))
-        ds_val = VisionDataset(path=(localdir / "validation"))
-        ds_test = VisionDataset(path=(localdir / "test"))
+        ds_train = VisionDataset(path=(localdir / "train"), rgb_only=True)
+        ds_val = VisionDataset(path=(localdir / "validation"), rgb_only=True)
+        ds_test = VisionDataset(path=(localdir / "test"), rgb_only=True)
 
         return {
             "train_dataset": ds_train,
