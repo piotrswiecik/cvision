@@ -3,9 +3,11 @@
 
 import datetime
 import mlflow
+import tempfile
 import torch
 import uuid
 from torch import nn
+from torchinfo import summary
 from torch.utils.data import DataLoader
 from typing import Any, Literal, Callable
 
@@ -14,7 +16,33 @@ type Device = Literal["cpu", "cuda", "mps"]
 
 
 class ModelTrainer:
-    """Model trainer with built in MLFlow support."""
+    """Model trainer with built in MLFlow support.
+    
+    Attributes:
+        _model (nn.Module):
+            PyTorch model instance.
+        _train_loader (DataLoader):
+            PyTorch compatible dataloader built around the training dataset.
+        _test_loader (DataLoader):
+            PyTorch compatible dataloader built around the validation dataset.
+        _loss_fn (nn.Module):
+            Loss function instance. Supported types -> https://pytorch.org/docs/stable/nn.html#loss-functions
+        _accuracy_fn (callable[[torch.Tensor, torch.Tensor], float]):
+            Function used to calculate % accuracy. Should accept 2 PyTorch tensors and return a float.
+            Provided tensors contain actual and predicted values.
+        _optimizer (torch.optim.Optimizer):
+            One of optimizer instances supported by PyTorch -> https://pytorch.org/docs/stable/optim.html#algorithms
+        _device (Device):
+            Tensor processing device. Defaults to CPU, also supports CUDA and MPS. However, MPS implementation
+            is sometimes incompatible with models.
+        _mlflow_uri (str | None):
+            Optional URI of MLFlow tracking server. If not provided, then experiment tracking won't be used.
+        _mlflow_exp_name (str | None):
+            Optional MLFlow experiment name. Will be randomly generated if not provided and tracking is used.
+        _hyperparams (dict | None):
+            Optional dict of model hyperparameters. Used for MLFlow tracking. Will be populated by model.hyperparams attribute
+            if model comes with it.
+    """
 
     def __init__(
         self,
@@ -64,6 +92,11 @@ class ModelTrainer:
         self._client = None
         self._mlflow_exp_name = mlflow_exp_name
         self._mlflow_exp_id = None
+
+        # track hyperparams if they are defined inside the model
+        self._hyperparams: dict[str, Any] | None = None
+        if hasattr(self._model, "hyperparams"):
+            self._hyperparams = model.hyperparams
 
         if self._mlflow_uri is not None:
             # TODO: validate uri & server connection
@@ -149,6 +182,12 @@ class ModelTrainer:
                 experiment_id=self._mlflow_exp_id,
                 run_name=f"{self._mlflow_exp_name}-{datetime.datetime.now().strftime('%Y%m%d-%H%M')}"
             )
+            with tempfile.NamedTemporaryFile("w") as summary_file:
+                pass
+                # TODO: method to calculate input size
+                #summary_file.write(str(summary(self._model, input_size=)))
+                #mlflow.log_artifact() path to summary file
+            mlflow.log_params(params=self._hyperparams, run_id=run.info.run_id)
 
         for epoch in range(n_epochs):
             epoch_res = self._train_step()
@@ -170,3 +209,8 @@ class ModelTrainer:
                 
             print(f"Epoch #{epoch+1} | Train loss {epoch_res['loss']:.4f} | Train acc {epoch_res['accuracy']:.4f}")
             print(f"Epoch #{epoch+1} | Val loss {epoch_eval['loss']:.4f} | Val acc {epoch_eval['accuracy']:.4f}")
+
+        if log:
+            mlflow.pytorch.log_model(self._model, f"add some name") # TODO: naming
+
+        
