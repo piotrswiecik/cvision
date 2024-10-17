@@ -89,7 +89,7 @@ class ModelTrainer:
         self._optimizer = optimizer
         self._device = device
         self._mlflow_uri = mlflow_uri
-        self._client = None
+        #self._client = None
         self._mlflow_exp_name = mlflow_exp_name
         self._mlflow_exp_id = None
 
@@ -98,16 +98,19 @@ class ModelTrainer:
         if hasattr(self._model, "hyperparams"):
             self._hyperparams = model.hyperparams
 
-        if self._mlflow_uri is not None:
-            # TODO: validate uri & server connection
-            self._client = mlflow.tracking.MlflowClient(tracking_uri=self._mlflow_uri)
-            if self._mlflow_exp_name is None:
-                self._mlflow_exp_name = str(uuid.uuid4())
-            experiment = self._client.get_experiment_by_name(self._mlflow_exp_name)
-            if experiment is None:
-                self._client.create_experiment(self._mlflow_exp_name)
-                experiment = self._client.get_experiment_by_name(self._mlflow_exp_name)
-            self._mlflow_exp_id = experiment.experiment_id
+        if self._mlflow_exp_name is None:
+            self._mlflow_exp_name = str(uuid.uuid4())
+
+        # if self._mlflow_uri is not None:
+        #     # TODO: validate uri & server connection - currently hangs up
+        #     self._client = mlflow.tracking.MlflowClient(tracking_uri=self._mlflow_uri)
+        #     if self._mlflow_exp_name is None:
+        #         self._mlflow_exp_name = str(uuid.uuid4())
+        #     experiment = self._client.get_experiment_by_name(self._mlflow_exp_name)
+        #     if experiment is None:
+        #         self._client.create_experiment(self._mlflow_exp_name)
+        #         experiment = self._client.get_experiment_by_name(self._mlflow_exp_name)
+        #     self._mlflow_exp_id = experiment.experiment_id
 
 
     def _train_step(self) -> dict[str, float]:
@@ -175,42 +178,63 @@ class ModelTrainer:
             n_epochs (int):
                 # of training epochs.
         """
-        log = self._client is not None
-        run = None
+        # log = self._client is not None
+        log = self._mlflow_uri is not None
+        # run = None
         if log:
-            run = self._client.create_run(
+            mlflow.set_tracking_uri(self._mlflow_uri)
+            exp_instance = mlflow.get_experiment_by_name(self._mlflow_exp_name) # FIXME
+            if exp_instance is None:
+                self._mlflow_exp_id = mlflow.create_experiment(self._mlflow_exp_name) # FIXME
+            run_name = f"{self._mlflow_exp_name}-{datetime.datetime.now().strftime('%Y%m%d-%H%M')}"
+            with mlflow.start_run(
                 experiment_id=self._mlflow_exp_id,
-                run_name=f"{self._mlflow_exp_name}-{datetime.datetime.now().strftime('%Y%m%d-%H%M')}"
-            )
-            with tempfile.NamedTemporaryFile("w") as summary_file:
-                pass
-                # TODO: method to calculate input size
-                #summary_file.write(str(summary(self._model, input_size=)))
-                #mlflow.log_artifact() path to summary file
-            mlflow.log_params(params=self._hyperparams, run_id=run.info.run_id)
+                run_name=run_name
+            ) as run:
+                with tempfile.NamedTemporaryFile("w") as summary_file:
+                    input_size = self._train_loader.dataset[0][0].shape
+                    input_size = (1, *input_size)
+                    mlflow.log_artifact(summary_file.name) # FIXME
+                if self._hyperparams is not None:
+                    mlflow.log_params(self._hyperparams)
+            # run = self._client.create_run(
+            #     experiment_id=self._mlflow_exp_id,
+            #     run_name=f"{self._mlflow_exp_name}-{datetime.datetime.now().strftime('%Y%m%d-%H%M')}"
+            # )
+            # with tempfile.NamedTemporaryFile("w") as summary_file:
+            #     input_size = self._train_loader.dataset[0][0].shape
+            #     summary_file.write(str(summary(self._model, input_size=(1, *input_size))))
+            #     self._client.log_artifact(run_id=run.info.run_id, local_path=summary_file.name)
+            #     #mlflow.log_artifact(summary_file.name, run_id=run.info.run_id)
+            # if self._hyperparams is not None:
+            #     mlflow.log_params(params=self._hyperparams, run_id=run.info.run_id)
 
-        for epoch in range(n_epochs):
-            epoch_res = self._train_step()
-            epoch_eval = self._test_step()
-            # TODO: additional logs
-            if log:
-                self._client.log_metric(
-                    run_id=run.info.run_id, key="train_loss", value=epoch_res["loss"], step=epoch
-                )
-                self._client.log_metric(
-                    run_id=run.info.run_id, key="train_acc", value=epoch_res["accuracy"], step=epoch
-                )
-                self._client.log_metric(
-                    run_id=run.info.run_id, key="val_loss", value=epoch_eval["loss"], step=epoch
-                )
-                self._client.log_metric(
-                    run_id=run.info.run_id, key="val_acc", value=epoch_eval["accuracy"], step=epoch
-                )
-                
-            print(f"Epoch #{epoch+1} | Train loss {epoch_res['loss']:.4f} | Train acc {epoch_res['accuracy']:.4f}")
-            print(f"Epoch #{epoch+1} | Val loss {epoch_eval['loss']:.4f} | Val acc {epoch_eval['accuracy']:.4f}")
+                for epoch in range(n_epochs):
+                    epoch_res = self._train_step()
+                    epoch_eval = self._test_step()
+                    if log:
+                        mlflow.log_metric("train_loss", epoch_res["loss", epoch])
+                        mlflow.log_metric("train_acc", epoch_res["acc", epoch])
+                        mlflow.log_metric("val_loss", epoch_eval["loss", epoch])
+                        mlflow.log_metric("val_acc", epoch_eval["loss", epoch])
+                        # self._client.log_metric(
+                        #     run_id=run.info.run_id, key="train_loss", value=epoch_res["loss"], step=epoch
+                        # )
+                        # self._client.log_metric(
+                        #     run_id=run.info.run_id, key="train_acc", value=epoch_res["accuracy"], step=epoch
+                        # )
+                        # self._client.log_metric(
+                        #     run_id=run.info.run_id, key="val_loss", value=epoch_eval["loss"], step=epoch
+                        # )
+                        # self._client.log_metric(
+                        #     run_id=run.info.run_id, key="val_acc", value=epoch_eval["accuracy"], step=epoch
+                        # )
+                        
+                    print(f"Epoch #{epoch+1} | Train loss {epoch_res['loss']:.4f} | Train acc {epoch_res['accuracy']:.4f}")
+                    print(f"Epoch #{epoch+1} | Val loss {epoch_eval['loss']:.4f} | Val acc {epoch_eval['accuracy']:.4f}")
 
-        if log:
-            mlflow.pytorch.log_model(self._model, f"add some name") # TODO: naming
+        #TODO: save model
+        # if log:
+        #     mlflow.pytorch.log_model(self._model, f"add some name") # TODO: naming
 
         
